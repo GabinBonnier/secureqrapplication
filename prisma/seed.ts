@@ -34,6 +34,11 @@ async function main() {
                 email: "blue@example.com",
                 password: hashedPassword,
             },
+            {
+                username: "test",
+                email: "test@example.com",
+                password: hashedPassword
+            },
         ],
     });
 
