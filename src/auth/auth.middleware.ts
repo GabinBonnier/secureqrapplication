@@ -1,10 +1,14 @@
 import {NextFunction, Request, Response} from 'express'
 import jwt from 'jsonwebtoken'
+import {env} from '../env'
 
 declare global {
     namespace Express {
         interface Request {
-            userId?: number
+            user?: {
+                userId: number
+                email: string
+            }
         }
     }
 }
@@ -22,7 +26,7 @@ export const authenticateToken = (
     }
 
     try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET as string) as {
+    const decoded = jwt.verify(token, env.JWT_SECRET) as {
         userId: number
         email: string
     }
