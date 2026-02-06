@@ -115,13 +115,11 @@ router.get('/:id', async (req: Request, res: Response) => {
     }
 })
 
-// PATCH /api/decks/:id - Modifier un deck
 router.patch('/:id', async (req: Request, res: Response) => {
     const {id} = req.params
     const {name, cards} = req.body
 
     try {
-        // Vérifier que le deck existe
         const existingDeck = await prisma.deck.findUnique({
             where: {
                 id: parseInt(id)
@@ -136,7 +134,6 @@ router.patch('/:id', async (req: Request, res: Response) => {
             return res.status(403).json({error: 'Accès non autorisé à ce deck'})
         }
 
-        // Si des cartes sont fournies, les valider
         if (cards !== undefined) {
             if (!Array.isArray(cards)) {
                 return res.status(400).json({error: 'Les cartes doivent être un tableau'})
@@ -146,7 +143,6 @@ router.patch('/:id', async (req: Request, res: Response) => {
                 return res.status(400).json({error: 'Un deck doit contenir exactement 10 cartes'})
             }
 
-            // Vérifier que toutes les cartes existent
             const existingCards = await prisma.card.findMany({
                 where: {
                     id: {in: cards}
@@ -157,14 +153,12 @@ router.patch('/:id', async (req: Request, res: Response) => {
                 return res.status(400).json({error: 'Une ou plusieurs cartes sont invalides'})
             }
 
-            // Supprimer les anciennes associations
             await prisma.deckCard.deleteMany({
                 where: {
                     deckId: parseInt(id)
                 }
             })
 
-            // Créer les nouvelles associations
             await prisma.deckCard.createMany({
                 data: cards.map(cardId => ({
                     deckId: parseInt(id),
@@ -173,7 +167,6 @@ router.patch('/:id', async (req: Request, res: Response) => {
             })
         }
 
-        // Mettre à jour le deck
         const updatedDeck = await prisma.deck.update({
             where: {
                 id: parseInt(id)
@@ -197,7 +190,6 @@ router.patch('/:id', async (req: Request, res: Response) => {
     }
 })
 
-// DELETE /api/decks/:id - Supprimer un deck
 router.delete('/:id', async (req: Request, res: Response) => {
     const {id} = req.params
 
