@@ -4,15 +4,12 @@ import {authenticateToken} from '../../auth/auth.middleware'
 
 const router = Router()
 
-// Appliquer le middleware d'authentification à toutes les routes
 router.use(authenticateToken)
 
-// POST /api/decks - Créer un nouveau deck
 router.post('/', async (req: Request, res: Response) => {
     const {name, cards} = req.body
 
     try {
-        // Validation des données
         if (!name) {
             return res.status(400).json({error: 'Le nom du deck est requis'})
         }
@@ -25,7 +22,6 @@ router.post('/', async (req: Request, res: Response) => {
             return res.status(400).json({error: 'Un deck doit contenir exactement 10 cartes'})
         }
 
-        // Vérifier que toutes les cartes existent
         const existingCards = await prisma.card.findMany({
             where: {
                 id: {in: cards}
@@ -36,7 +32,6 @@ router.post('/', async (req: Request, res: Response) => {
             return res.status(400).json({error: 'Une ou plusieurs cartes sont invalides'})
         }
 
-        // Créer le deck
         const deck = await prisma.deck.create({
             data: {
                 name,
@@ -63,7 +58,6 @@ router.post('/', async (req: Request, res: Response) => {
     }
 })
 
-// GET /api/decks/mine - Lister tous les decks de l'utilisateur
 router.get('/mine', async (req: Request, res: Response) => {
     try {
         const decks = await prisma.deck.findMany({
@@ -89,7 +83,6 @@ router.get('/mine', async (req: Request, res: Response) => {
     }
 })
 
-// GET /api/decks/:id - Consulter un deck spécifique
 router.get('/:id', async (req: Request, res: Response) => {
     const {id} = req.params
 
@@ -111,7 +104,6 @@ router.get('/:id', async (req: Request, res: Response) => {
             return res.status(404).json({error: 'Deck non trouvé'})
         }
 
-        // Vérifier que le deck appartient à l'utilisateur
         if (deck.userId !== req.user!.userId) {
             return res.status(403).json({error: 'Accès non autorisé à ce deck'})
         }
@@ -140,7 +132,6 @@ router.patch('/:id', async (req: Request, res: Response) => {
             return res.status(404).json({error: 'Deck non trouvé'})
         }
 
-        // Vérifier que le deck appartient à l'utilisateur
         if (existingDeck.userId !== req.user!.userId) {
             return res.status(403).json({error: 'Accès non autorisé à ce deck'})
         }
@@ -211,7 +202,6 @@ router.delete('/:id', async (req: Request, res: Response) => {
     const {id} = req.params
 
     try {
-        // Vérifier que le deck existe
         const existingDeck = await prisma.deck.findUnique({
             where: {
                 id: parseInt(id)
@@ -222,19 +212,16 @@ router.delete('/:id', async (req: Request, res: Response) => {
             return res.status(404).json({error: 'Deck non trouvé'})
         }
 
-        // Vérifier que le deck appartient à l'utilisateur
         if (existingDeck.userId !== req.user!.userId) {
             return res.status(403).json({error: 'Accès non autorisé à ce deck'})
         }
 
-        // Supprimer les DeckCards associés
         await prisma.deckCard.deleteMany({
             where: {
                 deckId: parseInt(id)
             }
         })
 
-        // Supprimer le deck
         await prisma.deck.delete({
             where: {
                 id: parseInt(id)
