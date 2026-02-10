@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'scan_pairing_screen.dart';
 
 class home_screen extends StatelessWidget {
   const home_screen({super.key});
@@ -9,10 +10,17 @@ class home_screen extends StatelessWidget {
       appBar: AppBar(
         title: const Text('Initialisation'),
       ),
-      body: const Center(
-        child: Text(
-          'Page suivante',
-          style: TextStyle(fontSize: 24),
+      body: Center(
+        child: ElevatedButton(
+          onPressed: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => const ScanPairingScreen(),
+              ),
+            );
+          },
+          child: const Text('Aller à la page suivante'),
         ),
       ),
     );
