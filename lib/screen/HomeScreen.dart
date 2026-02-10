@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'scan_pairing_screen.dart';
+import 'ScanPrairingScreen.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});

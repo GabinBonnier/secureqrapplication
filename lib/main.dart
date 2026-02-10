@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:secureqrapplication/screen/home_screen.dart';
-import 'screen/start_screen.dart';
+import 'package:secureqrapplication/screen/HomeScreen.dart';
+import 'screen/StartScreen.dart';
 
 void main() {
   runApp(const MyApp());
