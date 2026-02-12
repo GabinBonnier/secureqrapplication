@@ -2,8 +2,13 @@ import 'package:flutter/material.dart';
 
 class FloatingRedButton extends StatelessWidget {
   final VoidCallback onTap;
+  final IconData icon; // Icône dynamique
 
-  const FloatingRedButton({super.key, required this.onTap});
+  const FloatingRedButton({
+    super.key,
+    required this.onTap,
+    required this.icon,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -23,12 +28,8 @@ class FloatingRedButton extends StatelessWidget {
             ),
           ],
         ),
-        child: const Center(
-          child: Icon(
-            Icons.qr_code,
-            color: Colors.black,
-            size: 32,
-          ),
+        child: Center(
+          child: Icon(icon, color: Colors.black, size: 32),
         ),
       ),
     );
