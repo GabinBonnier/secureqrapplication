@@ -7,10 +7,10 @@ class ConversationScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MainLayout(
-      onFloatingTap: () {},
-      body: const Center(
+      body:const Center(
         child: Text('Page Conversations'),
       ),
+      currentIndex : 0,
     );
   }
 }

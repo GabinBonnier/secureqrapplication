@@ -8,10 +8,7 @@ class ScanPairingScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MainLayout(
-      floatingButtonBottom: 35,
-      onFloatingTap: () {
-        debugPrint('Bouton rouge cliqué');
-      },
+      currentIndex : 2,
       body: Container(
         color: const Color(0xFFE4CECE),
         width: double.infinity,

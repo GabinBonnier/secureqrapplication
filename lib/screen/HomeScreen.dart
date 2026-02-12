@@ -11,10 +11,7 @@ class HomeScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MainLayout(
-      floatingButtonBottom: 35, // position classique
-      onFloatingTap: () {
-        print('QR tapped');
-      },
+      currentIndex: 1, // position classique
       body: const Center(
         child: Text('Home'),
       ),
