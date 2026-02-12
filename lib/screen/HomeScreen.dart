@@ -17,7 +17,7 @@ class _HomeScreenState extends State<HomeScreen> {
   String qrData = "";
   ui.Image? qrImage;
   Timer? timer;
-  int secondsLeft = 30;
+  int secondsLeft = 15; // 15 secondes par cycle
 
   @override
   void initState() {
@@ -32,27 +32,25 @@ class _HomeScreenState extends State<HomeScreen> {
     super.dispose();
   }
 
-  // Génère un nouveau QR code
+  // Génère un nouveau QR code avec un contenu unique
   void generateQRCode() async {
     qrData = DateTime.now().millisecondsSinceEpoch.toString() +
         "-" +
         Random().nextInt(1000).toString();
     secondsLeft = 15;
 
-    // Crée l'image du QR code avec QrPainter
     final qrPainter = QrPainter(
       data: qrData,
       version: QrVersions.auto,
       gapless: false,
     );
 
-    final image = await qrPainter.toImage(250);
+    final image = await qrPainter.toImage(240);
     setState(() {
       qrImage = image;
     });
   }
 
-  // Timer pour le compte à rebours et le rafraîchissement
   void startTimer() {
     timer = Timer.periodic(const Duration(seconds: 1), (_) {
       setState(() {
@@ -65,26 +63,109 @@ class _HomeScreenState extends State<HomeScreen> {
     });
   }
 
+// Permet de formater l'heure
+    String get formattedTime {
+    final minutes = (secondsLeft ~/ 60).toString().padLeft(2, '0');
+    final seconds = (secondsLeft % 60).toString().padLeft(2, '0');
+    return "$minutes:$seconds";
+  }
+
   @override
   Widget build(BuildContext context) {
     return MainLayout(
       currentIndex: 1,
-      body: Center(
+      body: Container(
+        color: const Color(0xFFDCCACA),
+        width: double.infinity,
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            qrImage != null
-                ? SizedBox(
-              width: 250,
-              height: 250,
-              child: RawImage(image: qrImage),
-            )
-                : const CircularProgressIndicator(),
-            const SizedBox(height: 20),
-            Text(
-              "QR Code se rafraîchira dans $secondsLeft secondes",
-              style: const TextStyle(fontSize: 16),
+            Container(
+              width: 320,
+              padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 24),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(32),
+                border: Border.all(color: Colors.red, width: 3),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.1),
+                    blurRadius: 8,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Logo RCL
+                  SizedBox(
+                    width: 80,
+                    height: 80,
+                    child: Image.asset('assets/logo.png'),
+                  ),
+                  const SizedBox(height: 16),
+
+                  const Text(
+                    'Votre Pass Supporter',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                      color: Colors.black87,
+                    ),
+                  ),
+
+                  const SizedBox(height: 20),
+
+                  // QR Code dynamique
+                  qrImage != null
+                      ? SizedBox(
+                    width: 240,
+                    height: 240,
+                    child: RawImage(image: qrImage),
+                  )
+                      : const SizedBox(
+                    width: 240,
+                    height: 240,
+                    child: Center(child: CircularProgressIndicator()),
+                  ),
+
+                  const SizedBox(height: 8),
+
+                  const Text(
+                    'Scannez ce code',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.black54,
+                    ),
+                  ),
+
+                  const SizedBox(height: 24),
+
+                  const Text(
+                    "Ce QR code expire dans",
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Colors.black54,
+                    ),
+                  ),
+
+                  const SizedBox(height: 4),
+
+                  Text(
+                    formattedTime,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                      color: Colors.black87,
+                    ),
+                  ),
+                ],
+              ),
             ),
+
+            const SizedBox(height: 40),
+
           ],
         ),
       ),

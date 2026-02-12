@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../layout/MainLayout.dart';
-import 'dart:convert'; // Pour convertir List<String> en JSON
 
 class ConversationScreen extends StatefulWidget {
   final String partnerCode;
@@ -14,46 +14,55 @@ class ConversationScreen extends StatefulWidget {
 
 class _ConversationScreenState extends State<ConversationScreen> {
   final TextEditingController _controller = TextEditingController();
-  List<String> messages = [];
+  List<String> localMessages = [];
 
   @override
   void initState() {
     super.initState();
-    loadMessages();
+    loadLocalMessages();
   }
 
-  // Charger les messages depuis le stockage local
-  Future<void> loadMessages() async {
+  // Charger messages locaux si existants
+  Future<void> loadLocalMessages() async {
     final prefs = await SharedPreferences.getInstance();
     final stored = prefs.getString(widget.partnerCode);
     if (stored != null) {
-      setState(() {
-        messages = List<String>.from(jsonDecode(stored));
+      setState(() async {
+        localMessages = List<String>.from(await Future.value(stored != null ? List<String>.from(List<String>.from(stored.split('|'))) : []));
       });
     }
   }
 
-  // Sauvegarder les messages dans le stockage local
-  Future<void> saveMessages() async {
+  // Sauvegarder messages localement (optionnel)
+  Future<void> saveLocalMessages(List<String> messages) async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(widget.partnerCode, jsonEncode(messages));
+    await prefs.setString(widget.partnerCode, messages.join('|'));
   }
 
-  void sendMessage() {
+  // Envoyer message sur Firestore
+  void sendMessage() async {
     if (_controller.text.trim().isEmpty) return;
 
-    setState(() {
-      messages.add(_controller.text.trim());
-      _controller.clear();
+    final messageText = _controller.text.trim();
+
+    // Ajouter message à Firestore
+    await FirebaseFirestore.instance
+        .collection('conversations')
+        .doc(widget.partnerCode)
+        .collection('messages')
+        .add({
+      'sender': 'me', // ou un identifiant unique du device
+      'text': messageText,
+      'timestamp': FieldValue.serverTimestamp(),
     });
 
-    saveMessages(); // Sauvegarde automatique à chaque message
+    _controller.clear();
   }
 
   @override
   Widget build(BuildContext context) {
     return MainLayout(
-      currentIndex: 0, // Index Conversations
+      currentIndex: 0,
       body: Column(
         children: [
           Container(
@@ -66,19 +75,39 @@ class _ConversationScreenState extends State<ConversationScreen> {
                   fontSize: 18, fontWeight: FontWeight.bold),
             ),
           ),
+          // Utiliser StreamBuilder pour récupérer messages en temps réel
           Expanded(
-            child: ListView.builder(
-              padding: const EdgeInsets.all(16),
-              itemCount: messages.length,
-              itemBuilder: (context, index) {
-                return Container(
-                  margin: const EdgeInsets.symmetric(vertical: 4),
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Colors.red[50],
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Text(messages[index]),
+            child: StreamBuilder<QuerySnapshot>(
+              stream: FirebaseFirestore.instance
+                  .collection('conversations')
+                  .doc(widget.partnerCode)
+                  .collection('messages')
+                  .orderBy('timestamp')
+                  .snapshots(),
+              builder: (context, snapshot) {
+                if (!snapshot.hasData) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+
+                final messages = snapshot.data!.docs.map((doc) => doc['text'].toString()).toList();
+
+                // Sauvegarder localement pour cache (optionnel)
+                saveLocalMessages(messages);
+
+                return ListView.builder(
+                  padding: const EdgeInsets.all(16),
+                  itemCount: messages.length,
+                  itemBuilder: (context, index) {
+                    return Container(
+                      margin: const EdgeInsets.symmetric(vertical: 4),
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.red[50],
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(messages[index]),
+                    );
+                  },
                 );
               },
             ),
