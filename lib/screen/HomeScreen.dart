@@ -3,8 +3,10 @@ import 'dart:math';
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../layout/MainLayout.dart';
 import 'package:qr_flutter/qr_flutter.dart';
+import 'ConversationScreen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -18,12 +20,14 @@ class _HomeScreenState extends State<HomeScreen> {
   ui.Image? qrImage;
   Timer? timer;
   int secondsLeft = 15; // 15 secondes par cycle
+  bool conversationReady = false; // Indique si quelqu'un a scanné
 
   @override
   void initState() {
     super.initState();
     generateQRCode();
     startTimer();
+    checkConversationExistence();
   }
 
   @override
@@ -32,7 +36,7 @@ class _HomeScreenState extends State<HomeScreen> {
     super.dispose();
   }
 
-  // Génère un nouveau QR code avec un contenu unique
+  // Génère un nouveau QR code unique
   void generateQRCode() async {
     qrData = DateTime.now().millisecondsSinceEpoch.toString() +
         "-" +
@@ -48,6 +52,22 @@ class _HomeScreenState extends State<HomeScreen> {
     final image = await qrPainter.toImage(240);
     setState(() {
       qrImage = image;
+      conversationReady = false; // Reset conversation
+    });
+  }
+
+  // Vérifie en temps réel si quelqu'un a scanné le QR code
+  void checkConversationExistence() {
+    FirebaseFirestore.instance
+        .collection('conversations')
+        .doc(qrData)
+        .snapshots()
+        .listen((doc) {
+      if (doc.exists && !conversationReady) {
+        setState(() {
+          conversationReady = true;
+        });
+      }
     });
   }
 
@@ -58,13 +78,14 @@ class _HomeScreenState extends State<HomeScreen> {
           secondsLeft--;
         } else {
           generateQRCode();
+          checkConversationExistence();
         }
       });
     });
   }
 
-// Permet de formater l'heure
-    String get formattedTime {
+  // Formate le temps restant
+  String get formattedTime {
     final minutes = (secondsLeft ~/ 60).toString().padLeft(2, '0');
     final seconds = (secondsLeft % 60).toString().padLeft(2, '0');
     return "$minutes:$seconds";
@@ -98,14 +119,12 @@ class _HomeScreenState extends State<HomeScreen> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  // Logo RCL
                   SizedBox(
                     width: 80,
                     height: 80,
                     child: Image.asset('assets/logo.png'),
                   ),
                   const SizedBox(height: 16),
-
                   const Text(
                     'Votre Pass Supporter',
                     style: TextStyle(
@@ -114,10 +133,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       color: Colors.black87,
                     ),
                   ),
-
                   const SizedBox(height: 20),
-
-                  // QR Code dynamique
                   qrImage != null
                       ? SizedBox(
                     width: 240,
@@ -129,9 +145,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     height: 240,
                     child: Center(child: CircularProgressIndicator()),
                   ),
-
                   const SizedBox(height: 8),
-
                   const Text(
                     'Scannez ce code',
                     style: TextStyle(
@@ -139,9 +153,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       color: Colors.black54,
                     ),
                   ),
-
                   const SizedBox(height: 24),
-
                   const Text(
                     "Ce QR code expire dans",
                     style: TextStyle(
@@ -149,9 +161,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       color: Colors.black54,
                     ),
                   ),
-
                   const SizedBox(height: 4),
-
                   Text(
                     formattedTime,
                     style: const TextStyle(
@@ -160,12 +170,35 @@ class _HomeScreenState extends State<HomeScreen> {
                       color: Colors.black87,
                     ),
                   ),
+                  const SizedBox(height: 24),
+                  ElevatedButton(
+                    onPressed: conversationReady
+                        ? () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) =>
+                              ConversationScreen(partnerCode: qrData),
+                        ),
+                      );
+                    }
+                        : null,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: conversationReady ? Colors.red : Colors.grey,
+                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                    ),
+                    child: const Text(
+                      "Ouvrir la conversation",
+                      style: TextStyle(fontSize: 16, color: Colors.white),
+                    ),
+                  ),
                 ],
               ),
             ),
-
             const SizedBox(height: 40),
-
           ],
         ),
       ),
