@@ -6,11 +6,10 @@ import '../widgets/common/FooterWidget.dart';
 import '../widgets/common/FloatingRedButton.dart';
 
 import '../screen/ScanPrairingScreen.dart';
-import '../screen/ConversationScreen.dart';
 
 class MainLayout extends StatelessWidget {
   final Widget body;
-  final int currentIndex; // 0 = Relations, 1 = Home, 2 = Scan
+  final int currentIndex; // 0 = Conversations, 1 = Home, 2 = Scan
 
   const MainLayout({
     super.key,
@@ -25,7 +24,8 @@ class MainLayout extends StatelessWidget {
 
     switch (index) {
       case 0:
-        screen = const ConversationScreen();
+      // Écran Conversations – navigation via ScanPairingScreen, donc ici on peut juste mettre un écran vide ou la liste des conversations
+        screen = const HomeScreen(); // remplacer par ta liste de conversations si tu en as
         break;
       case 1:
         screen = const HomeScreen();
