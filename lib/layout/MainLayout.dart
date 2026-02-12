@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:secureqrapplication/screen/ConversationList.dart';
 import 'package:secureqrapplication/screen/HomeScreen.dart';
 
 import '../widgets/common/HeaderWidget.dart';
@@ -25,7 +26,7 @@ class MainLayout extends StatelessWidget {
     switch (index) {
       case 0:
       // Écran Conversations – navigation via ScanPairingScreen, donc ici on peut juste mettre un écran vide ou la liste des conversations
-        screen = const HomeScreen(); // remplacer par ta liste de conversations si tu en as
+        screen = const ConversationList(); // remplacer par ta liste de conversations si tu en as
         break;
       case 1:
         screen = const HomeScreen();

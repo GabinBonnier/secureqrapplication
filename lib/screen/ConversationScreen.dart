@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../layout/MainLayout.dart';
+import 'dart:convert'; // Pour convertir List<String> en JSON
 
 class ConversationScreen extends StatefulWidget {
   final String partnerCode;
@@ -12,7 +14,30 @@ class ConversationScreen extends StatefulWidget {
 
 class _ConversationScreenState extends State<ConversationScreen> {
   final TextEditingController _controller = TextEditingController();
-  final List<String> messages = [];
+  List<String> messages = [];
+
+  @override
+  void initState() {
+    super.initState();
+    loadMessages();
+  }
+
+  // Charger les messages depuis le stockage local
+  Future<void> loadMessages() async {
+    final prefs = await SharedPreferences.getInstance();
+    final stored = prefs.getString(widget.partnerCode);
+    if (stored != null) {
+      setState(() {
+        messages = List<String>.from(jsonDecode(stored));
+      });
+    }
+  }
+
+  // Sauvegarder les messages dans le stockage local
+  Future<void> saveMessages() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(widget.partnerCode, jsonEncode(messages));
+  }
 
   void sendMessage() {
     if (_controller.text.trim().isEmpty) return;
@@ -21,12 +46,14 @@ class _ConversationScreenState extends State<ConversationScreen> {
       messages.add(_controller.text.trim());
       _controller.clear();
     });
+
+    saveMessages(); // Sauvegarde automatique à chaque message
   }
 
   @override
   Widget build(BuildContext context) {
     return MainLayout(
-      currentIndex: 2, // ou l'index approprié
+      currentIndex: 0, // Index Conversations
       body: Column(
         children: [
           Container(
