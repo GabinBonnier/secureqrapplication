@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "685074731446",
+    "project_id": "qrapplication-bded6",
+    "storage_bucket": "qrapplication-bded6.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:685074731446:android:2d2f63efafe169d6853117",
+        "android_client_info": {
+          "package_name": "com.example.secureqrapplication"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDts2rT4kOykLoqG9HLbrbVJYZBLyXUov4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
