@@ -2,8 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import '../layout/MainLayout.dart';
 
-class ScanPairingScreen extends StatelessWidget {
+class ScanPairingScreen extends StatefulWidget {
   const ScanPairingScreen({super.key});
+
+  @override
+  State<ScanPairingScreen> createState() => _ScanPairingScreenState();
+}
+
+class _ScanPairingScreenState extends State<ScanPairingScreen> {
+  String? scannedCode;
 
   @override
   Widget build(BuildContext context) {
@@ -38,14 +45,16 @@ class ScanPairingScreen extends StatelessWidget {
                         onDetect: (BarcodeCapture capture) {
                           final String? code =
                               capture.barcodes.first.rawValue;
+
                           if (code != null) {
-                            debugPrint('QR scanné : $code');
+                            setState(() {
+                              scannedCode = code;
+                            });
                           }
                         },
                       ),
                     ),
                   ),
-
                   Container(
                     width: 280,
                     height: 280,
@@ -60,6 +69,22 @@ class ScanPairingScreen extends StatelessWidget {
                 ],
               ),
             ),
+
+            const SizedBox(height: 24),
+
+            if (scannedCode != null)
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: Text(
+                  "Code scanné : $scannedCode",
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w500,
+                    color: Colors.black87,
+                  ),
+                ),
+              ),
           ],
         ),
       ),
