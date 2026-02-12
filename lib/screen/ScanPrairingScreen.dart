@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import '../layout/MainLayout.dart';
+import 'ConversationScreen.dart';
 
 class ScanPairingScreen extends StatefulWidget {
   const ScanPairingScreen({super.key});
@@ -11,11 +12,12 @@ class ScanPairingScreen extends StatefulWidget {
 
 class _ScanPairingScreenState extends State<ScanPairingScreen> {
   String? scannedCode;
+  bool hasNavigated = false; // pour éviter de lancer plusieurs fois la navigation
 
   @override
   Widget build(BuildContext context) {
     return MainLayout(
-      currentIndex : 2,
+      currentIndex: 2,
       body: Container(
         color: const Color(0xFFE4CECE),
         width: double.infinity,
@@ -29,9 +31,7 @@ class _ScanPairingScreenState extends State<ScanPairingScreen> {
                 fontWeight: FontWeight.w600,
               ),
             ),
-
             const SizedBox(height: 24),
-
             Center(
               child: Stack(
                 alignment: Alignment.center,
@@ -43,13 +43,45 @@ class _ScanPairingScreenState extends State<ScanPairingScreen> {
                       height: 280,
                       child: MobileScanner(
                         onDetect: (BarcodeCapture capture) {
-                          final String? code =
-                              capture.barcodes.first.rawValue;
+                          final String? code = capture.barcodes.first.rawValue;
 
-                          if (code != null) {
-                            setState(() {
-                              scannedCode = code;
-                            });
+                          if (code != null && !hasNavigated) {
+                            scannedCode = code;
+                            hasNavigated = true;
+
+                            // Afficher une pop-up pour confirmer la connexion
+                            showDialog(
+                              context: context,
+                              builder: (context) => AlertDialog(
+                                title: const Text("Invitation reçue"),
+                                content: Text(
+                                    "Voulez-vous démarrer une conversation avec $code ?"),
+                                actions: [
+                                  TextButton(
+                                    onPressed: () {
+                                      Navigator.of(context).pop();
+                                      hasNavigated = false; // reset si annulation
+                                    },
+                                    child: const Text("Annuler"),
+                                  ),
+                                  TextButton(
+                                    onPressed: () {
+                                      Navigator.of(context).pop();
+                                      // Naviguer vers ConversationScreen avec le partnerCode
+                                      Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (context) =>
+                                              ConversationScreen(
+                                                  partnerCode: scannedCode!),
+                                        ),
+                                      );
+                                    },
+                                    child: const Text("Accepter"),
+                                  ),
+                                ],
+                              ),
+                            );
                           }
                         },
                       ),
@@ -69,9 +101,7 @@ class _ScanPairingScreenState extends State<ScanPairingScreen> {
                 ],
               ),
             ),
-
             const SizedBox(height: 24),
-
             if (scannedCode != null)
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 20),
