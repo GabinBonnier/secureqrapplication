@@ -2,7 +2,7 @@ name: secureqrapplication
 description: "A new Flutter project."
 # The following line prevents the package from being accidentally published to
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
-publish_to: 'none' # Remove this line if you wish to publish to pub.dev
+publish_to: "none" # Remove this line if you wish to publish to pub.dev
 
 # The following defines the version and build number for your application.
 # A version number is three numbers separated by dots, like 1.2.43
@@ -33,6 +33,9 @@ dependencies:
   cloud_firestore: ^6.1.2
   firebase_core: ^4.4.0
   shared_preferences: ^2.1.1
+  pointycastle: ^3.7.4
+  basic_utils: ^5.7.0
+  flutter_secure_storage: ^9.2.2
 
   flutter:
     sdk: flutter
@@ -61,7 +64,6 @@ dev_dependencies:
 flutter:
   assets:
     - assets/logo.png
-
 
   # The following line ensures that the Material Icons font is
   # included with your application, so that you can use the icons in
@@ -98,7 +100,3 @@ flutter:
   #
   # For details regarding fonts from package dependencies,
   # see https://flutter.dev/to/font-from-package
-
-
-
-
