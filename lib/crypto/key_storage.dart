@@ -5,7 +5,6 @@ import 'key_generator.dart';
 class KeyStorage {
   static final FlutterSecureStorage _storage = FlutterSecureStorage();
   
-  // cles en memoire pour acces rapide
   static String? _myPublicKeyPem;
   static String? _myPrivateKeyPem;
   static String? _partnerPublicKeyPem;
@@ -35,7 +34,7 @@ class KeyStorage {
     return _myPublicKeyPem!;
   }
 
-  // retourne notre cle privee (en PEM)
+  // retourne notre cle privee
   static Future<String?> getMyPrivateKeyPem() async {
     if (_myPrivateKeyPem == null) {
       _myPrivateKeyPem = await _storage.read(key: 'my_private_key');
