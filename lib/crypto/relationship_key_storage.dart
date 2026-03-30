@@ -15,8 +15,9 @@ class RelationshipKeyStorage {
   Future<void> generateAndSaveKeyPair(String relationId) async {
     if (kIsWeb) {
       // Clé factice pour le web (pour la démo UI)
-      await _storage.write(key: _pubKey(relationId), value: '-----BEGIN PUBLIC KEY-----\nFAKE-WEB-KEY-$relationId\n-----END PUBLIC KEY-----');
-      await _storage.write(key: _privKey(relationId), value: '-----BEGIN PRIVATE KEY-----\nFAKE-WEB-KEY-$relationId\n-----END PRIVATE KEY-----');
+      final fakeKey = '-----BEGIN PUBLIC KEY-----\nFAKE-WEB-KEY-$relationId\n-----END PUBLIC KEY-----';
+      await _storage.write(key: _pubKey(relationId), value: fakeKey);
+      await _storage.write(key: _privKey(relationId), value: fakeKey);
       print('Clé factice générée pour le web (relation $relationId)');
     } else {
       final keys = MyKeyGenerator.generateKeyPair();
@@ -38,9 +39,18 @@ class RelationshipKeyStorage {
   Future<String?> readPartnerPublicKey(String relationId) =>
       _storage.read(key: 'rel:$relationId:partnerPubPem');
 
+  /// Store partner's relation code (e.g. B for Alice's A)
+  Future<void> savePartnerRelationCode(String relationId, String partnerRelationCode) async {
+    await _storage.write(key: 'rel:$relationId:partnerRelCode', value: partnerRelationCode);
+  }
+
+  Future<String?> readPartnerRelationCode(String relationId) =>
+      _storage.read(key: 'rel:$relationId:partnerRelCode');
+
   Future<void> clearKeys(String relationId) async {
     await _storage.delete(key: _pubKey(relationId));
     await _storage.delete(key: _privKey(relationId));
     await _storage.delete(key: 'rel:$relationId:partnerPubPem');
+    await _storage.delete(key: 'rel:$relationId:partnerRelCode');
   }
 }

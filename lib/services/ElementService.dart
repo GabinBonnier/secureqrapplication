@@ -1,75 +1,118 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:secureqrapplication/services/ApiClient.dart';
 import 'package:secureqrapplication/crypto/rsa_crypto.dart';
 import 'package:secureqrapplication/crypto/relationship_key_storage.dart';
 
 class ElementService {
-	static Future<bool> sendElement({
-		required String relationCode,
-		required String type, // 'message', 'icone', ...
-		required String value,
-	}) async {
-		try {
-			// Chiffrement RSA avec la clé publique du partenaire (par relation)
-			final keyStore = RelationshipKeyStorage();
-			final partnerKey = await keyStore.readPartnerPublicKey(relationCode);
-			if (partnerKey == null) throw Exception('Clé publique du partenaire manquante');
-      final encrypted = RsaCrypto.encrypt(
-        value,
-        partnerKey,
-      );
-      final body = {
-				'relationCode': relationCode,
-				'type': type,
-				'value': encrypted,
-			};
-			await ApiClient.post('/element', body);
-			return true;
-		} catch (e) {
-			print('Erreur envoi element: $e');
-			return false;
-		}
-	}
 
-	// Récupère et déchiffre les éléments reçus
-	static Future<List<Map<String, dynamic>>> fetchElements(String relationCode) async {
-		try {
-			final response = await ApiClient.get('/element?relationCode=$relationCode');
-			final List data = jsonDecode(response.body);
-			final keyStore = RelationshipKeyStorage();
-			final myPrivateKey = await keyStore.readPrivateKeyPem(relationCode);
-			final isWeb = identical(0, 0.0);
-			return data.map<Map<String, dynamic>>((e) {
-				String decrypted = '';
-				try {
-					if (myPrivateKey == null) throw Exception('Clé privée manquante');
-          decrypted = RsaCrypto.decrypt(
-            e['value'],
-            myPrivateKey,
-          );
+  static Future<bool> sendElement({
+    required String relationCode,
+    required String type,
+    required String value,
+  }) async {
+    print('=== sendElement START: relationCode=$relationCode, type=$type ===');
+    final keyStore = RelationshipKeyStorage();
+    
+    // Retry loop for partner key (max 10s)
+    String? partnerKey;
+    String? partnerRelCode;
+    int retries = 0;
+    while (retries < 20) {  // 20 * 0.5s = 10s
+      partnerKey = await keyStore.readPartnerPublicKey(relationCode);
+      partnerRelCode = await keyStore.readPartnerRelationCode(relationCode);
+      print('Key check #$retries: partnerKey=${partnerKey != null}, partnerRelCode=$partnerRelCode');
+      if (partnerKey != null) break;
+      await Future.delayed(const Duration(milliseconds: 500));
+      retries++;
+    }
+    
+    if (partnerKey == null) {
+      print('❌ Partner key still missing after 10s retries');
+      return false;
+    }
+    print('✅ Partner key ready (${partnerKey.length} chars)');
+
+    String encrypted;
+    bool isFakeKey = kIsWeb || partnerKey.contains('FAKE-WEB-KEY');
+
+    if (isFakeKey) {
+      encrypted = base64Encode(utf8.encode(value));
+      print('Mode web/fake : message encodé en base64');
+    } else {
+      encrypted = RsaCrypto.encrypt(value, partnerKey);
+      print('RSA encryption OK');
+    }
+
+    // Enhanced payload with both relation codes
+    final payload = {
+      'relationCode': relationCode,
+      'partnerRelationCode': partnerRelCode ?? '',
+      'type': type,
+      'value': encrypted,
+    };
+    print('API payload: $payload');
+
+    try {
+      final response = await ApiClient.post('/element', payload);
+      print('✅ API POST success: ${response.statusCode}');
+      return true;
+    } catch (e) {
+      print('❌ API POST failed: $e');
+      return false;
+    }
+  }
+
+  static Future<List<Map<String, dynamic>>> fetchElements(String relationCode) async {
+    try {
+      final response = await ApiClient.get('/element?relationCode=$relationCode');
+      final decoded = jsonDecode(response.body);
+
+      // Gérer tous les formats possibles de réponse
+      final List? data;
+      if (decoded is List) {
+        data = decoded;
+      } else if (decoded is Map && decoded['elements'] is List) {
+        data = decoded['elements'];
+      } else {
+        // {elements: null} ou format inconnu → pas encore de messages, c'est normal
+        return [];
+      }
+
+      if (data == null || data.isEmpty) return [];
+
+      final keyStore = RelationshipKeyStorage();
+      final myPrivateKey = await keyStore.readPrivateKeyPem(relationCode);
+
+      return data.map<Map<String, dynamic>>((e) {
+        String decrypted = '';
+        try {
+          if (myPrivateKey == null) throw Exception('Clé privée manquante');
+
+          // Sur le web, clés factices → décodage base64 simple
+          if (kIsWeb || myPrivateKey.contains('FAKE-WEB-KEY')) {
+            try {
+              decrypted = utf8.decode(base64Decode(e['value']));
+            } catch (_) {
+              decrypted = e['value'] ?? '';
+            }
+          } else {
+            decrypted = RsaCrypto.decrypt(e['value'], myPrivateKey);
+          }
         } catch (_) {
-					if (isWeb) {
-						// En mode web, afficher le message brut (base64 décodé) si possible
-						try {
-							decrypted = utf8.decode(base64Decode(e['value']));
-						} catch (_) {
-							decrypted = '[Erreur de déchiffrement]';
-						}
-					} else {
-						decrypted = '[Erreur de déchiffrement]';
-					}
-				}
-				return {
-					'type': e['type'],
-					'value': decrypted,
-					'from': e['from'],
-					'timestamp': e['timestamp'],
-				};
-			}).toList();
-		} catch (e) {
-			print('Erreur fetch elements: $e');
-			return [];
-		}
-	}
-}
+          decrypted = '[Erreur de déchiffrement]';
+        }
 
+        return {
+          'type': e['type'],
+          'value': decrypted,
+          'from': e['from'],
+          'timestamp': e['timestamp'],
+        };
+      }).toList();
+    } catch (e) {
+      print('Erreur fetch elements: $e');
+      return [];
+    }
+  }
+}

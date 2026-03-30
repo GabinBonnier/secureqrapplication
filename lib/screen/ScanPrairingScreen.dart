@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import '../layout/MainLayout.dart';
-import 'ConversationScreen.dart';
+import 'RelationScreen.dart';
 import '../services/PairingService.dart';
 
 class ScanPairingScreen extends StatefulWidget {
@@ -16,43 +16,39 @@ class _ScanPairingScreenState extends State<ScanPairingScreen> {
   bool hasNavigated = false;
   bool isLoading = false;
 
-  // complete le pairing via l'API
   void completePairingAndNavigate(String pairingId) async {
-    setState(() {
-      isLoading = true;
-    });
+    setState(() => isLoading = true);
 
     try {
-      // on complete le pairing
       var result = await PairingService.completePairing(pairingId);
-      
-      if (result != null) {
-        print("Pairing complete !");
-        // on navigue vers la conversation (toujours avec le code du QR)
+      if (result != null && result['relationCodeB'] != null) {
+        final String relationCodeB = result['relationCodeB'];
+        print("Pairing complete ! relationCodeB: $relationCodeB");
+
+        if (!mounted) return;
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (context) => ConversationScreen(conversationId: pairingId),
+            builder: (context) => RelationScreen(relationCode: relationCodeB),
           ),
         );
       } else {
-        // erreur
+        if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Erreur: pairing invalide ou expire")),
+          const SnackBar(content: Text("Erreur: pairing invalide ou expiré")),
         );
-        hasNavigated = false;
+        setState(() => hasNavigated = false);
       }
     } catch (e) {
       print("Erreur completion: $e");
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text("Erreur: $e")),
       );
-      hasNavigated = false;
+      setState(() => hasNavigated = false);
     }
 
-    setState(() {
-      isLoading = false;
-    });
+    if (mounted) setState(() => isLoading = false);
   }
 
   @override
@@ -67,10 +63,7 @@ class _ScanPairingScreenState extends State<ScanPairingScreen> {
           children: [
             const Text(
               'Scanner un QR-code',
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.w600,
-              ),
+              style: TextStyle(fontSize: 20, fontWeight: FontWeight.w600),
             ),
             const SizedBox(height: 24),
             Center(
@@ -82,55 +75,58 @@ class _ScanPairingScreenState extends State<ScanPairingScreen> {
                     child: SizedBox(
                       width: 280,
                       height: 280,
-                      child: isLoading 
-                        ? const Center(child: CircularProgressIndicator())
-                        : MobileScanner(
-                        onDetect: (BarcodeCapture capture) {
-                          final String? code = capture.barcodes.first.rawValue;
+                      child: isLoading
+                          ? const Center(child: CircularProgressIndicator())
+                          : MobileScanner(
+                              onDetect: (BarcodeCapture capture) {
+                                // ✅ CORRIGÉ : on vérifie que la liste n'est pas vide
+                                if (capture.barcodes.isEmpty) return;
+                                final String? code =
+                                    capture.barcodes.first.rawValue;
 
-                          if (code != null && !hasNavigated) {
-                            scannedCode = code;
-                            hasNavigated = true;
+                                if (code != null && !hasNavigated) {
+                                  setState(() {
+                                    scannedCode = code;
+                                    hasNavigated = true;
+                                  });
 
-                            // popup pour confirmer
-                            showDialog(
-                              context: context,
-                              builder: (context) => AlertDialog(
-                                title: const Text("Invitation reçue"),
-                                content: Text(
-                                    "Voulez-vous demarrer une conversation ?"),
-                                actions: [
-                                  TextButton(
-                                    onPressed: () {
-                                      Navigator.of(context).pop();
-                                      hasNavigated = false;
-                                    },
-                                    child: const Text("Annuler"),
-                                  ),
-                                  TextButton(
-                                    onPressed: () {
-                                      Navigator.of(context).pop();
-                                      // on complete le pairing via l'API
-                                      completePairingAndNavigate(scannedCode!);
-                                    },
-                                    child: const Text("Accepter"),
-                                  ),
-                                ],
-                              ),
-                            );
-                          }
-                        },
-                      ),
+                                  showDialog(
+                                    context: context,
+                                    builder: (context) => AlertDialog(
+                                      title: const Text("Invitation reçue"),
+                                      content: const Text(
+                                          "Voulez-vous démarrer une conversation ?"),
+                                      actions: [
+                                        TextButton(
+                                          onPressed: () {
+                                            Navigator.of(context).pop();
+                                            setState(
+                                                () => hasNavigated = false);
+                                          },
+                                          child: const Text("Annuler"),
+                                        ),
+                                        TextButton(
+                                          onPressed: () {
+                                            Navigator.of(context).pop();
+                                            completePairingAndNavigate(
+                                                scannedCode!);
+                                          },
+                                          child: const Text("Accepter"),
+                                        ),
+                                      ],
+                                    ),
+                                  );
+                                }
+                              },
+                            ),
                     ),
                   ),
+                  // Cadre de visée
                   Container(
                     width: 280,
                     height: 280,
                     decoration: BoxDecoration(
-                      border: Border.all(
-                        color: Colors.white,
-                        width: 4,
-                      ),
+                      border: Border.all(color: Colors.white, width: 4),
                       borderRadius: BorderRadius.circular(12),
                     ),
                   ),
