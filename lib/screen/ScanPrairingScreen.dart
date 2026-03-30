@@ -32,7 +32,7 @@ class _ScanPairingScreenState extends State<ScanPairingScreen> {
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (context) => ConversationScreen(conversationId: pairingId),
+            builder: (context) => ConversationScreen(conversationId: result['relationCodeB'] as String),
           ),
         );
       } else {
