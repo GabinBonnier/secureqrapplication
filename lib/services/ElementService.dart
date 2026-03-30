@@ -88,15 +88,24 @@ class ElementService {
         try {
           if (myPrivateKey == null) throw Exception('Clé privée manquante');
 
-          // Sur le web, clés factices → décodage base64 simple
           if (kIsWeb || myPrivateKey.contains('FAKE-WEB-KEY')) {
+            // Clé factice (web) → décodage base64
             try {
               decrypted = utf8.decode(base64Decode(e['value']));
             } catch (_) {
               decrypted = e['value'] ?? '';
             }
           } else {
-            decrypted = RsaCrypto.decrypt(e['value'], myPrivateKey);
+            // Clé RSA réelle → tenter RSA, sinon fallback base64
+            try {
+              decrypted = RsaCrypto.decrypt(e['value'], myPrivateKey);
+            } catch (_) {
+              try {
+                decrypted = utf8.decode(base64Decode(e['value']));
+              } catch (_) {
+                decrypted = '[Erreur de déchiffrement]';
+              }
+            }
           }
         } catch (_) {
           decrypted = '[Erreur de déchiffrement]';
