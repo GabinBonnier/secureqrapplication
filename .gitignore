@@ -43,3 +43,15 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# iOS/macOS Pods
+ios/Pods/
+macos/Pods/
+ios/Podfile.lock
+macos/Podfile.lock
+
+# Flutter plugins file (auto-generated)
+.flutter-plugins
+
+# Claude AI config
+.claude/
