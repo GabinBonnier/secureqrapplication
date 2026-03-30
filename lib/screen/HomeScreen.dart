@@ -50,6 +50,7 @@ class _HomeScreenState extends State<HomeScreen> {
       
       print("Pairing cree: $code");
 
+      if (!mounted) return;
       setState(() {
         relationCode = code;
         isLoading = false;
@@ -63,6 +64,7 @@ class _HomeScreenState extends State<HomeScreen> {
     } catch (e, stack) {
       print("Erreur creation pairing: $e");
       print(stack);
+      if (!mounted) return;
       setState(() {
         isLoading = false;
         errorMessage = "Erreur lors de la génération des clés RSA ou du pairing : $e";
@@ -83,12 +85,10 @@ class _HomeScreenState extends State<HomeScreen> {
           pollingTimer?.cancel();
           var result = await PairingService.finalizePairing(relationCode);
           if (result != null) {
-            setState(() {
-              conversationReady = true;
-            });
             print("Pairing finalisé, prêt pour conversation !");
             // Navigation automatique vers la conversation
             if (mounted) {
+              setState(() { conversationReady = true; });
               Navigator.pushReplacement(
                 context,
                 MaterialPageRoute(
@@ -107,16 +107,15 @@ class _HomeScreenState extends State<HomeScreen> {
   void startTimer() {
     timer?.cancel();
     timer = Timer.periodic(const Duration(seconds: 1), (_) {
-      setState(() {
-        if (secondsLeft > 0) {
-          secondsLeft--;
-        } else {
-          // timeout - on recree
-          timer?.cancel();
-          pollingTimer?.cancel();
-          createNewPairing();
-        }
-      });
+      if (!mounted) return;
+      if (secondsLeft > 0) {
+        setState(() { secondsLeft--; });
+      } else {
+        // timeout - on recree
+        timer?.cancel();
+        pollingTimer?.cancel();
+        createNewPairing();
+      }
     });
   }
 

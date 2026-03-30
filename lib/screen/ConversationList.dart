@@ -22,6 +22,7 @@ class _ConversationListState extends State<ConversationList> {
   // Charger toutes les conversations stockées (clé 'conversations')
   Future<void> loadConversations() async {
     final prefs = await SharedPreferences.getInstance();
+    if (!mounted) return;
     setState(() {
       conversationKeys = prefs.getStringList('conversations') ?? [];
     });
