@@ -44,11 +44,10 @@ class ElementService {
       debugPrint('RSA encryption OK');
     }
 
-    // Enhanced payload with both relation codes
     final payload = {
       'relationCode': relationCode,
       'partnerRelationCode': partnerRelCode ?? '',
-      'type': type,
+      'key': type,
       'value': encrypted,
     };
     debugPrint('API payload: $payload');
