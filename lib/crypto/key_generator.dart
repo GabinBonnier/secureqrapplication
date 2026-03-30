@@ -1,5 +1,5 @@
+import 'package:flutter/foundation.dart';
 import 'dart:math';
-import 'dart:typed_data';
 import 'package:pointycastle/export.dart';
 import 'package:basic_utils/basic_utils.dart';
 
@@ -20,7 +20,7 @@ class MyKeyGenerator {
 
   // genere une paire de cles et retourne en format PEM
   static Map<String, String> generateKeyPair() {
-    print("Generation des cles RSA...");
+    debugPrint("Generation des cles RSA...");
 
     final generator = RSAKeyGenerator();
     generator.init(ParametersWithRandom(
@@ -36,7 +36,7 @@ class MyKeyGenerator {
     String publicPem = CryptoUtils.encodeRSAPublicKeyToPem(publicKey);
     String privatePem = CryptoUtils.encodeRSAPrivateKeyToPem(privateKey);
 
-    print("Cles generees !");
+    debugPrint("Cles generees !");
     
     return {
       'public': publicPem,

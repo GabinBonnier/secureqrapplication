@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import '../services/ElementService.dart';
-import '../services/PairingService.dart';
 import '../crypto/relationship_key_storage.dart';
 import 'dart:async';
 
@@ -72,7 +71,7 @@ class _RelationScreenState extends State<RelationScreen> {
     } catch (e) {
       setState(() {
         isLoading = false;
-        errorMessage = 'Erreur lors de la récupération des messages :\n' + e.toString();
+        errorMessage = 'Erreur lors de la récupération des messages :\n$e';
       });
     }
   }
@@ -95,12 +94,12 @@ class _RelationScreenState extends State<RelationScreen> {
         await fetchMessages();
       } else {
         setState(() {
-          errorMessage = 'Erreur lors de l\'envoi du message.';
+          errorMessage = "Erreur lors de l'envoi du message.";
         });
       }
     } catch (e) {
       setState(() {
-        errorMessage = 'Erreur lors de l\'envoi du message :\n' + e.toString();
+        errorMessage = "Erreur lors de l'envoi du message :\n$e";
       });
     } finally {
       setState(() {
@@ -132,10 +131,10 @@ class _RelationScreenState extends State<RelationScreen> {
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             child: Row(
               children: [
-                Icon(keysReady ? Icons.security : Icons.hourglass_empty, 
+                Icon(keysReady ? Icons.security : Icons.hourglass_empty,
                      color: keysReady ? Colors.green : Colors.orange),
                 const SizedBox(width: 8),
-                Expanded(child: Text(keyStatus ?? 'Vérification...', 
+                Expanded(child: Text(keyStatus ?? 'Vérification...',
                                     style: TextStyle(
                                       fontWeight: FontWeight.w500,
                                       color: keysReady ? Colors.green[800] : Colors.orange[800],

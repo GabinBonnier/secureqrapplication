@@ -27,7 +27,7 @@ class _ScanPairingScreenState extends State<ScanPairingScreen> {
       var result = await PairingService.completePairing(pairingId);
       
       if (result != null) {
-        print("Pairing complete !");
+        debugPrint("Pairing complete !");
         // on navigue vers la conversation (toujours avec le code du QR)
         Navigator.push(
           context,
@@ -43,7 +43,7 @@ class _ScanPairingScreenState extends State<ScanPairingScreen> {
         hasNavigated = false;
       }
     } catch (e) {
-      print("Erreur completion: $e");
+      debugPrint("Erreur completion: $e");
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text("Erreur: $e")),
       );

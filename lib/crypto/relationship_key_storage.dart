@@ -18,7 +18,7 @@ class RelationshipKeyStorage {
       final fakeKey = '-----BEGIN PUBLIC KEY-----\nFAKE-WEB-KEY-$relationId\n-----END PUBLIC KEY-----';
       await _storage.write(key: _pubKey(relationId), value: fakeKey);
       await _storage.write(key: _privKey(relationId), value: fakeKey);
-      print('Clé factice générée pour le web (relation $relationId)');
+      debugPrint('Clé factice générée pour le web (relation $relationId)');
     } else {
       final keys = MyKeyGenerator.generateKeyPair();
       await _storage.write(key: _pubKey(relationId), value: keys['public']);

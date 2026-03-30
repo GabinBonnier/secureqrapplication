@@ -11,7 +11,7 @@ class ElementService {
     required String type,
     required String value,
   }) async {
-    print('=== sendElement START: relationCode=$relationCode, type=$type ===');
+    debugPrint('=== sendElement START: relationCode=$relationCode, type=$type ===');
     final keyStore = RelationshipKeyStorage();
     
     // Retry loop for partner key (max 10s)
@@ -21,27 +21,27 @@ class ElementService {
     while (retries < 20) {  // 20 * 0.5s = 10s
       partnerKey = await keyStore.readPartnerPublicKey(relationCode);
       partnerRelCode = await keyStore.readPartnerRelationCode(relationCode);
-      print('Key check #$retries: partnerKey=${partnerKey != null}, partnerRelCode=$partnerRelCode');
+      debugPrint('Key check #$retries: partnerKey=${partnerKey != null}, partnerRelCode=$partnerRelCode');
       if (partnerKey != null) break;
       await Future.delayed(const Duration(milliseconds: 500));
       retries++;
     }
     
     if (partnerKey == null) {
-      print('❌ Partner key still missing after 10s retries');
+      debugPrint('❌ Partner key still missing after 10s retries');
       return false;
     }
-    print('✅ Partner key ready (${partnerKey.length} chars)');
+    debugPrint('✅ Partner key ready (${partnerKey.length} chars)');
 
     String encrypted;
     bool isFakeKey = kIsWeb || partnerKey.contains('FAKE-WEB-KEY');
 
     if (isFakeKey) {
       encrypted = base64Encode(utf8.encode(value));
-      print('Mode web/fake : message encodé en base64');
+      debugPrint('Mode web/fake : message encodé en base64');
     } else {
       encrypted = RsaCrypto.encrypt(value, partnerKey);
-      print('RSA encryption OK');
+      debugPrint('RSA encryption OK');
     }
 
     // Enhanced payload with both relation codes
@@ -51,14 +51,14 @@ class ElementService {
       'type': type,
       'value': encrypted,
     };
-    print('API payload: $payload');
+    debugPrint('API payload: $payload');
 
     try {
       final response = await ApiClient.post('/element', payload);
-      print('✅ API POST success: ${response.statusCode}');
+      debugPrint('✅ API POST success: ${response.statusCode}');
       return true;
     } catch (e) {
-      print('❌ API POST failed: $e');
+      debugPrint('❌ API POST failed: $e');
       return false;
     }
   }
@@ -111,7 +111,7 @@ class ElementService {
         };
       }).toList();
     } catch (e) {
-      print('Erreur fetch elements: $e');
+      debugPrint('Erreur fetch elements: $e');
       return [];
     }
   }

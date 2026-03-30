@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'dart:convert';
 import 'package:uuid/uuid.dart';
 import 'package:secureqrapplication/services/ApiClient.dart';
@@ -11,31 +12,31 @@ class PairingService {
   // Crée un nouveau pairing (Alice)
   // Retourne le relationCode à mettre dans le QR
   static Future<String> createPairing() async {
-    print("Creation du pairing...");
+    debugPrint("Creation du pairing...");
     try {
       String relationCode = const Uuid().v4();
       _myRelationCode = relationCode;
-      print("Generated relationCode: $relationCode");
+      debugPrint("Generated relationCode: $relationCode");
 
       final keyStore = RelationshipKeyStorage();
       await keyStore.generateAndSaveKeyPair(relationCode);
-      print("Clés générées pour la relation $relationCode");
+      debugPrint("Clés générées pour la relation $relationCode");
 
       String? myPublicKey = await keyStore.readPublicKeyPem(relationCode);
       if (myPublicKey == null) throw Exception('Clé publique non trouvée');
-      print("Public key ready: ${myPublicKey.length} chars");
+      debugPrint("Public key ready: ${myPublicKey.length} chars");
 
       final response = await ApiClient.post('/pairing', {
         'relationCode': relationCode,
         'userPublicKey': myPublicKey,
       });
 
-      print("API POST success: ${response.statusCode} - ${response.body}");
-      print("Pairing créé avec relationCode: $relationCode");
+      debugPrint("API POST success: ${response.statusCode} - ${response.body}");
+      debugPrint("Pairing créé avec relationCode: $relationCode");
       return relationCode;
     } catch (e, stack) {
-      print("ERROR createPairing: $e");
-      print("Stack: $stack");
+      debugPrint("ERROR createPairing: $e");
+      debugPrint("Stack: $stack");
       rethrow;
     }
   }
@@ -43,7 +44,7 @@ class PairingService {
   // Complète un pairing existant (Bob scanne le QR d'Alice)
   // relationCodeA = celui dans le QR d'Alice
   static Future<Map<String, dynamic>?> completePairing(String relationCodeA) async {
-    print("Complétion du pairing $relationCodeA...");
+    debugPrint("Complétion du pairing $relationCodeA...");
 
     String relationCodeB = const Uuid().v4();
     _myRelationCode = relationCodeB;
@@ -51,7 +52,7 @@ class PairingService {
 
     final keyStore = RelationshipKeyStorage();
     await keyStore.generateAndSaveKeyPair(relationCodeB);
-    print("Clés générées pour la relation $relationCodeB");
+    debugPrint("Clés générées pour la relation $relationCodeB");
 
     String? myPublicKey = await keyStore.readPublicKeyPem(relationCodeB);
     if (myPublicKey == null) throw Exception('Clé publique non trouvée');
@@ -70,7 +71,7 @@ class PairingService {
       if (data['userPublicKey'] != null) {
         await keyStore.savePartnerPublicKey(relationCodeB, data['userPublicKey']);
         await keyStore.savePartnerRelationCode(relationCodeB, relationCodeA);
-        print("Clé publique d'Alice + relCodeA enregistrés sous $relationCodeB !");
+        debugPrint("Clé publique d'Alice + relCodeA enregistrés sous $relationCodeB !");
       }
 
       // On retourne relationCodeB pour que Bob navigue avec son propre code
@@ -79,7 +80,7 @@ class PairingService {
         'relationCodeB': relationCodeB,
       };
     } catch (e) {
-      print("Erreur completion: $e");
+      debugPrint("Erreur completion: $e");
       return null;
     }
   }
@@ -87,21 +88,21 @@ class PairingService {
   // Vérifie le statut du pairing (polling)
   static Future<String?> checkPairingStatus(String relationCode) async {
     try {
-      print("Checking status for $relationCode...");
+      debugPrint("Checking status for $relationCode...");
       final response = await ApiClient.get('/pairing/$relationCode/status');
       final data = jsonDecode(response.body);
-      print("Status du pairing: ${data['status']}");
+      debugPrint("Status du pairing: ${data['status']}");
       return data['status']; // "waiting", "completed" ou "finalized"
     } catch (e, stack) {
-      print("ERROR checkPairingStatus $relationCode: $e");
-      print("Stack: $stack");
+      debugPrint("ERROR checkPairingStatus $relationCode: $e");
+      debugPrint("Stack: $stack");
       return null;
     }
   }
 
   // Finalise le pairing (Alice, après détection "completed")
   static Future<Map<String, dynamic>?> finalizePairing(String relationCodeA) async {
-    print("Finalisation du pairing...");
+    debugPrint("Finalisation du pairing...");
     try {
       final response = await ApiClient.delete('/pairing?relationCodeA=$relationCodeA');
       final data = jsonDecode(response.body);
@@ -113,12 +114,12 @@ class PairingService {
         await keyStore.savePartnerPublicKey(relationCodeA, data['publicKeyB']);
         await keyStore.savePartnerRelationCode(relationCodeA, data['relationCodeB']);
         _partnerRelationCode = data['relationCodeB'];
-        print("Clé publique de Bob + relCodeB enregistrés sous $relationCodeA !");
+        debugPrint("Clé publique de Bob + relCodeB enregistrés sous $relationCodeA !");
       }
 
       return data;
     } catch (e) {
-      print("Erreur finalisation: $e");
+      debugPrint("Erreur finalisation: $e");
       return null;
     }
   }

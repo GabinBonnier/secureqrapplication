@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'dart:async';
 import '../layout/MainLayout.dart';
 import '../services/ElementService.dart';
-import '../services/PairingService.dart';
 import '../crypto/relationship_key_storage.dart';
 
 class ConversationScreen extends StatefulWidget {

@@ -18,7 +18,7 @@ class KeyStorage {
         _myPrivateKeyPem = '-----BEGIN PRIVATE KEY-----\nFAKE-WEB-KEY\n-----END PRIVATE KEY-----';
         await _storage.write(key: 'my_public_key', value: _myPublicKeyPem);
         await _storage.write(key: 'my_private_key', value: _myPrivateKeyPem);
-        print('Clé factice générée pour le web.');
+        debugPrint('Clé factice générée pour le web.');
       } else {
         Map<String, String> keys = MyKeyGenerator.generateKeyPair();
         _myPublicKeyPem = keys['public'];
@@ -27,8 +27,8 @@ class KeyStorage {
         await _storage.write(key: 'my_private_key', value: _myPrivateKeyPem);
       }
     } catch (e, stack) {
-      print('Erreur lors de la génération des clés RSA: $e');
-      print(stack);
+      debugPrint('Erreur lors de la génération des clés RSA: $e');
+      debugPrint(stack.toString());
       rethrow;
     }
   }
@@ -46,6 +46,7 @@ class KeyStorage {
 
   // Retourne notre clé privée
   static Future<String?> getMyPrivateKeyPem() async {
+      // ignore: prefer_conditional_assignment
     if (_myPrivateKeyPem == null) {
       _myPrivateKeyPem = await _storage.read(key: 'my_private_key');
     }

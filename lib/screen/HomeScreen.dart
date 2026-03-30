@@ -48,7 +48,7 @@ class _HomeScreenState extends State<HomeScreen> {
       // on cree le pairing sur le serveur
       String code = await PairingService.createPairing();
       
-      print("Pairing cree: $code");
+      debugPrint("Pairing cree: $code");
 
       if (!mounted) return;
       setState(() {
@@ -62,8 +62,8 @@ class _HomeScreenState extends State<HomeScreen> {
       startPolling();
       
     } catch (e, stack) {
-      print("Erreur creation pairing: $e");
-      print(stack);
+      debugPrint("Erreur creation pairing: $e");
+      debugPrint(stack.toString());
       if (!mounted) return;
       setState(() {
         isLoading = false;
@@ -79,13 +79,13 @@ class _HomeScreenState extends State<HomeScreen> {
       if (relationCode.isEmpty || conversationReady) return;
       try {
         String? status = await PairingService.checkPairingStatus(relationCode);
-        print("Status du pairing: $status");
+        debugPrint("Status du pairing: $status");
         if (status == "completed") {
           // L'autre utilisateur a scanné ! On finalise pour récupérer ses infos
           pollingTimer?.cancel();
           var result = await PairingService.finalizePairing(relationCode);
           if (result != null) {
-            print("Pairing finalisé, prêt pour conversation !");
+            debugPrint("Pairing finalisé, prêt pour conversation !");
             // Navigation automatique vers la conversation
             if (mounted) {
               setState(() { conversationReady = true; });
@@ -99,7 +99,7 @@ class _HomeScreenState extends State<HomeScreen> {
           }
         }
       } catch (e) {
-        print("Polling error: $e");
+        debugPrint("Polling error: $e");
       }
     });
   }
@@ -146,7 +146,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   border: Border.all(color: Colors.red, width: 3),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.1),
+                      color: Colors.black.withValues(alpha: 0.1),
                       blurRadius: 8,
                       offset: const Offset(0, 4),
                     ),
