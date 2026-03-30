@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../layout/MainLayout.dart';
 import 'ConversationScreen.dart';
 import '../services/PairingService.dart';
@@ -28,11 +29,18 @@ class _ScanPairingScreenState extends State<ScanPairingScreen> {
       
       if (result != null) {
         debugPrint("Pairing complete !");
-        // on navigue vers la conversation (toujours avec le code du QR)
+        final myCode = result['relationCodeB'] as String;
+        // Sauvegarder la conversation dans SharedPreferences
+        final prefs = await SharedPreferences.getInstance();
+        final conversations = prefs.getStringList('conversations') ?? [];
+        if (!conversations.contains(myCode)) {
+          conversations.add(myCode);
+          await prefs.setStringList('conversations', conversations);
+        }
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (context) => ConversationScreen(conversationId: result['relationCodeB'] as String),
+            builder: (context) => ConversationScreen(conversationId: myCode),
           ),
         );
       } else {

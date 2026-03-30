@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../layout/MainLayout.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'ConversationScreen.dart';
@@ -86,7 +87,13 @@ class _HomeScreenState extends State<HomeScreen> {
           var result = await PairingService.finalizePairing(relationCode);
           if (result != null) {
             debugPrint("Pairing finalisé, prêt pour conversation !");
-            // Navigation automatique vers la conversation
+            // Sauvegarder la conversation dans SharedPreferences
+            final prefs = await SharedPreferences.getInstance();
+            final conversations = prefs.getStringList('conversations') ?? [];
+            if (!conversations.contains(relationCode)) {
+              conversations.add(relationCode);
+              await prefs.setStringList('conversations', conversations);
+            }
             if (mounted) {
               setState(() { conversationReady = true; });
               Navigator.pushReplacement(

@@ -62,9 +62,15 @@ class ElementService {
     }
   }
 
-  static Future<List<Map<String, dynamic>>> fetchElements(String relationCode) async {
+  static Future<List<Map<String, dynamic>>> fetchElements(String myRelationCode) async {
     try {
-      final response = await ApiClient.get('/element?relationCode=$relationCode');
+      // On fetch avec le code du PARTENAIRE pour récupérer les messages qu'il nous a envoyés
+      final keyStore = RelationshipKeyStorage();
+      final partnerCode = await keyStore.readPartnerRelationCode(myRelationCode);
+      final fetchCode = partnerCode ?? myRelationCode;
+      debugPrint('fetchElements: myCode=$myRelationCode, fetchCode=$fetchCode');
+
+      final response = await ApiClient.get('/element?relationCode=$fetchCode');
       final decoded = jsonDecode(response.body);
 
       // Gérer tous les formats possibles de réponse
@@ -74,14 +80,12 @@ class ElementService {
       } else if (decoded is Map && decoded['elements'] is List) {
         data = decoded['elements'];
       } else {
-        // {elements: null} ou format inconnu → pas encore de messages, c'est normal
         return [];
       }
 
       if (data == null || data.isEmpty) return [];
 
-      final keyStore = RelationshipKeyStorage();
-      final myPrivateKey = await keyStore.readPrivateKeyPem(relationCode);
+      final myPrivateKey = await keyStore.readPrivateKeyPem(myRelationCode);
 
       return data.map<Map<String, dynamic>>((e) {
         String decrypted = '';
