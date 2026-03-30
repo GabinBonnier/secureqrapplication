@@ -110,15 +110,20 @@ class PairingService {
     try {
       final response = await ApiClient.delete('/pairing?relationCodeA=$relationCodeA');
       final data = jsonDecode(response.body);
+      debugPrint("DELETE /pairing response body: $data");
 
       // Alice reçoit la clé publique de Bob → on la stocke sous relationCodeA
       // car Alice naviguera avec relationCodeA pour envoyer ses messages
-      if (data['publicKeyB'] != null) {
+      final bobKey = data['publicKeyB'] ?? data['publicKey'] ?? data['userPublicKey'];
+      final bobRelCode = data['relationCodeB'] ?? data['relationCode'];
+      if (bobKey != null && bobRelCode != null) {
         final keyStore = RelationshipKeyStorage();
-        await keyStore.savePartnerPublicKey(relationCodeA, data['publicKeyB']);
-        await keyStore.savePartnerRelationCode(relationCodeA, data['relationCodeB']);
-        _partnerRelationCode = data['relationCodeB'];
+        await keyStore.savePartnerPublicKey(relationCodeA, bobKey as String);
+        await keyStore.savePartnerRelationCode(relationCodeA, bobRelCode as String);
+        _partnerRelationCode = bobRelCode;
         debugPrint("Clé publique de Bob + relCodeB enregistrés sous $relationCodeA !");
+      } else {
+        debugPrint("❌ Clé/code de Bob introuvable dans la réponse. Champs reçus: ${data.keys.toList()}");
       }
 
       return data;
