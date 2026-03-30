@@ -1,48 +1,86 @@
 import 'dart:convert';
+import 'package:uuid/uuid.dart';
 import 'package:secureqrapplication/services/ApiClient.dart';
-import 'package:secureqrapplication/crypto/key_storage.dart';
+import 'package:secureqrapplication/crypto/relationship_key_storage.dart';
 
 // service pour gerer le pairing entre 2 appareils
 class PairingService {
   
-  // cree un nouveau pairing et retourne l'id
+  static String? _myRelationCode;
+  static String? _partnerRelationCode;
+
+  // Crée un nouveau pairing
+  // Retourne le relationCode à mettre dans le QR
   static Future<String> createPairing() async {
     print("Creation du pairing...");
-    
-    // on recupere notre cle publique
-    String myPublicKey = await KeyStorage.getMyPublicKeyPem();
-    
-    // on envoie au serveur
-    final response = await ApiClient.post('/pairing', {
-      'publicKey': myPublicKey,
-    });
-    
-    final data = jsonDecode(response.body);
-    String pairingId = data['id'];
-    
-    print("Pairing cree avec id: $pairingId");
-    return pairingId;
+    try {
+      // on genere un UUID pour le relationCode
+      String relationCode = const Uuid().v4();
+      _myRelationCode = relationCode;
+      print("Generated relationCode: $relationCode");
+
+      // Génère et stocke la paire de clés pour cette relation
+      final keyStore = RelationshipKeyStorage();
+      await keyStore.generateAndSaveKeyPair(relationCode);
+      print("Clés générées pour la relation $relationCode");
+
+      // on recupere notre cle publique
+      print("Getting public key...");
+      String? myPublicKey = await keyStore.readPublicKeyPem(relationCode);
+      if (myPublicKey == null) throw Exception('Clé publique non trouvée');
+      print("Public key ready: ${myPublicKey.length} chars");
+
+      // on envoie au serveur
+      print("Calling API POST /pairing...");
+      final response = await ApiClient.post('/pairing', {
+        'relationCode': relationCode,
+        'userPublicKey': myPublicKey,
+      });
+
+      print("API POST success: ${response.statusCode} - ${response.body}");
+      print("Pairing cree avec relationCode: $relationCode");
+      return relationCode;
+    } catch (e, stack) {
+      print("ERROR createPairing: $e");
+      print("Stack: $stack");
+      rethrow;
+    }
   }
 
-  // complete un pairing existant (scan d'un QR code)
-  static Future<Map<String, dynamic>?> completePairing(String pairingId) async {
-    print("Completion du pairing $pairingId...");
-    
-    String myPublicKey = await KeyStorage.getMyPublicKeyPem();
-    
+  // Complète un pairing existant
+  // relationCodeA = celui dans le QR
+  static Future<Map<String, dynamic>?> completePairing(String relationCodeA) async {
+    print("Complétion du pairing $relationCodeA...");
+    // on genere notre propre relationCode
+    String relationCodeB = const Uuid().v4();
+    _myRelationCode = relationCodeB;
+    _partnerRelationCode = relationCodeA;
+
+    // Génère et stocke la paire de clés pour cette relation
+    final keyStore = RelationshipKeyStorage();
+    await keyStore.generateAndSaveKeyPair(relationCodeB);
+    print("Clés générées pour la relation $relationCodeB");
+
+    // on recupere notre cle publique
+    String? myPublicKey = await keyStore.readPublicKeyPem(relationCodeB);
+    if (myPublicKey == null) throw Exception('Clé publique non trouvée');
+
     try {
-      final response = await ApiClient.put('/pairing/$pairingId', {
-        'publicKey': myPublicKey,
+      // PUT /pairing avec les 3 infos
+      final response = await ApiClient.put('/pairing', {
+        'relationCodeA': relationCodeA,
+        'relationCodeB': relationCodeB,
+        'publicKeyB': myPublicKey,
       });
-      
+
       final data = jsonDecode(response.body);
-      
-      // on recupere la cle publique du partenaire
-      if (data['partnerPublicKey'] != null) {
-        KeyStorage.setPartnerPublicKeyPem(data['partnerPublicKey']);
-        print("Cle du partenaire enregistree !");
+
+      // On récupère la clé publique du partenaire
+      if (data['userPublicKey'] != null) {
+        await keyStore.savePartnerPublicKey(relationCodeB, data['userPublicKey']);
+        print("Clé publique du partenaire enregistrée pour la relation $relationCodeB !");
       }
-      
+
       return data;
     } catch (e) {
       print("Erreur completion: $e");
@@ -50,37 +88,45 @@ class PairingService {
     }
   }
 
-  // verifie si le pairing est complet (le partenaire a scanne)
-  static Future<Map<String, dynamic>?> checkPairingStatus(String pairingId) async {
-    print("Verification du pairing $pairingId...");
-    
+  // verifie le status du pairing (polling)
+  static Future<String?> checkPairingStatus(String relationCode) async {
     try {
-      final response = await ApiClient.get('/pairing/$pairingId/status');
+      print("Checking status for $relationCode...");
+      final response = await ApiClient.get('/pairing/$relationCode/status');
       final data = jsonDecode(response.body);
-      
-      if (data['completed'] == true && data['partnerPublicKey'] != null) {
-        // on sauvegarde la cle du partenaire
-        KeyStorage.setPartnerPublicKeyPem(data['partnerPublicKey']);
-        print("Pairing complet !");
-      }
-      
-      return data;
-    } catch (e) {
-      print("Erreur verification: $e");
+      print("Status response: ${data['status']}");
+      return data['status']; // "waiting", "completed" ou "finalized"
+    } catch (e, stack) {
+      print("ERROR checkPairingStatus $relationCode: $e");
+      print("Stack: $stack");
       return null;
     }
   }
 
-  // supprime un pairing (finalisation)
-  static Future<bool> deletePairing(String pairingId) async {
-    print("Suppression du pairing $pairingId...");
+  // recupere les infos
+  static Future<Map<String, dynamic>?> finalizePairing(String relationCodeA) async {
+    print("Finalisation du pairing...");
+    
     try {
-      await ApiClient.delete('/pairing/$pairingId');
-      print("Pairing supprime");
-      return true;
+      final response = await ApiClient.delete('/pairing?relationCodeA=$relationCodeA');
+      final data = jsonDecode(response.body);
+      
+      // On récupère la clé publique et le relationCode du partenaire
+      if (data['publicKeyB'] != null && data['relationCodeB'] != null) {
+        final keyStore = RelationshipKeyStorage();
+        await keyStore.savePartnerPublicKey(data['relationCodeB'], data['publicKeyB']);
+        _partnerRelationCode = data['relationCodeB'];
+        print("Clé publique du partenaire enregistrée pour la relation ${data['relationCodeB']} !");
+      }
+      
+      return data;
     } catch (e) {
-      print("Erreur suppression: $e");
-      return false;
+      print("Erreur finalisation: $e");
+      return null;
     }
   }
+
+  // getters pour les relationCodes
+  static String? get myRelationCode => _myRelationCode;
+  static String? get partnerRelationCode => _partnerRelationCode;
 }

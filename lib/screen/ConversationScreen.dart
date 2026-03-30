@@ -1,12 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../layout/MainLayout.dart';
 
 class ConversationScreen extends StatefulWidget {
-  final String partnerCode;
+  final String conversationId;
 
-  const ConversationScreen({super.key, required this.partnerCode});
+  const ConversationScreen({super.key, required this.conversationId});
 
   @override
   State<ConversationScreen> createState() => _ConversationScreenState();
@@ -22,40 +21,43 @@ class _ConversationScreenState extends State<ConversationScreen> {
     loadLocalMessages();
   }
 
-  // Charger messages locaux si existants
+  // Charger messages locaux si existants et enregistrer la conversation dans la liste globale
   Future<void> loadLocalMessages() async {
     final prefs = await SharedPreferences.getInstance();
-    final stored = prefs.getString(widget.partnerCode);
+    final stored = prefs.getString(widget.conversationId);
     if (stored != null) {
-      setState(() async {
-        localMessages = List<String>.from(await Future.value(stored != null ? List<String>.from(List<String>.from(stored.split('|'))) : []));
+      setState(() {
+        localMessages = stored.split('|');
       });
+    }
+    // Ajoute la conversation à la liste globale si absente
+    List<String> allConvos = prefs.getStringList('conversations') ?? [];
+    if (!allConvos.contains(widget.conversationId)) {
+      allConvos.add(widget.conversationId);
+      await prefs.setStringList('conversations', allConvos);
     }
   }
 
-  // Sauvegarder messages localement (optionnel)
+  // Sauvegarder messages localement et maintenir la liste des conversations
   Future<void> saveLocalMessages(List<String> messages) async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(widget.partnerCode, messages.join('|'));
+    await prefs.setString(widget.conversationId, messages.join('|'));
+    // Ajoute la conversation à la liste globale si absente
+    List<String> allConvos = prefs.getStringList('conversations') ?? [];
+    if (!allConvos.contains(widget.conversationId)) {
+      allConvos.add(widget.conversationId);
+      await prefs.setStringList('conversations', allConvos);
+    }
   }
 
-  // Envoyer message sur Firestore
+  // Envoyer message (stockage local)
   void sendMessage() async {
     if (_controller.text.trim().isEmpty) return;
-
     final messageText = _controller.text.trim();
-
-    // Ajouter message à Firestore
-    await FirebaseFirestore.instance
-        .collection('conversations')
-        .doc(widget.partnerCode)
-        .collection('messages')
-        .add({
-      'sender': 'me', // ou un identifiant unique du device
-      'text': messageText,
-      'timestamp': FieldValue.serverTimestamp(),
+    setState(() {
+      localMessages.add(messageText);
     });
-
+    await saveLocalMessages(localMessages);
     _controller.clear();
   }
 
@@ -70,44 +72,24 @@ class _ConversationScreenState extends State<ConversationScreen> {
             color: Colors.red[100],
             width: double.infinity,
             child: Text(
-              "Conversation avec ${widget.partnerCode}",
+              "Conversation avec ${widget.conversationId}",
               style: const TextStyle(
                   fontSize: 18, fontWeight: FontWeight.bold),
             ),
           ),
-          // Utiliser StreamBuilder pour récupérer messages en temps réel
           Expanded(
-            child: StreamBuilder<QuerySnapshot>(
-              stream: FirebaseFirestore.instance
-                  .collection('conversations')
-                  .doc(widget.partnerCode)
-                  .collection('messages')
-                  .orderBy('timestamp')
-                  .snapshots(),
-              builder: (context, snapshot) {
-                if (!snapshot.hasData) {
-                  return const Center(child: CircularProgressIndicator());
-                }
-
-                final messages = snapshot.data!.docs.map((doc) => doc['text'].toString()).toList();
-
-                // Sauvegarder localement pour cache (optionnel)
-                saveLocalMessages(messages);
-
-                return ListView.builder(
-                  padding: const EdgeInsets.all(16),
-                  itemCount: messages.length,
-                  itemBuilder: (context, index) {
-                    return Container(
-                      margin: const EdgeInsets.symmetric(vertical: 4),
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: Colors.red[50],
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Text(messages[index]),
-                    );
-                  },
+            child: ListView.builder(
+              padding: const EdgeInsets.all(16),
+              itemCount: localMessages.length,
+              itemBuilder: (context, index) {
+                return Container(
+                  margin: const EdgeInsets.symmetric(vertical: 4),
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.red[50],
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(localMessages[index]),
                 );
               },
             ),
