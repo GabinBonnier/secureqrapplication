@@ -65,13 +65,17 @@ class PairingService {
       });
 
       final data = jsonDecode(response.body);
+      debugPrint("PUT /pairing response body: $data");
 
       // Bob reçoit la clé publique d'Alice → on la stocke sous relationCodeB
       // car Bob naviguera avec relationCodeB pour envoyer ses messages
-      if (data['userPublicKey'] != null) {
-        await keyStore.savePartnerPublicKey(relationCodeB, data['userPublicKey']);
+      final aliceKey = data['userPublicKey'] ?? data['publicKeyA'] ?? data['publicKey'];
+      if (aliceKey != null) {
+        await keyStore.savePartnerPublicKey(relationCodeB, aliceKey as String);
         await keyStore.savePartnerRelationCode(relationCodeB, relationCodeA);
         debugPrint("Clé publique d'Alice + relCodeA enregistrés sous $relationCodeB !");
+      } else {
+        debugPrint("❌ Clé publique d'Alice introuvable dans la réponse. Champs reçus: ${data.keys.toList()}");
       }
 
       // On retourne relationCodeB pour que Bob navigue avec son propre code
