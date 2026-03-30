@@ -179,14 +179,22 @@ class _ConversationScreenState extends State<ConversationScreen> {
                       itemCount: messages.length,
                       itemBuilder: (context, index) {
                         final msg = messages[messages.length - 1 - index];
-                        return Container(
-                          margin: const EdgeInsets.symmetric(vertical: 4),
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: Colors.red[50],
-                            borderRadius: BorderRadius.circular(8),
+                        final isSent = msg['isSent'] == true;
+                        return Align(
+                          alignment: isSent ? Alignment.centerRight : Alignment.centerLeft,
+                          child: Container(
+                            margin: const EdgeInsets.symmetric(vertical: 4),
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                            constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.75),
+                            decoration: BoxDecoration(
+                              color: isSent ? Colors.red[400] : Colors.grey[200],
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Text(
+                              msg['value'] ?? '',
+                              style: TextStyle(color: isSent ? Colors.white : Colors.black87),
+                            ),
                           ),
-                          child: Text(msg['value'] ?? ''),
                         );
                       },
                     ),

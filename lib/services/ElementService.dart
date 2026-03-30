@@ -6,6 +6,9 @@ import 'package:secureqrapplication/crypto/relationship_key_storage.dart';
 
 class ElementService {
 
+  // Cache local des messages envoyés (plaintext) pour l'historique de session
+  static final Map<String, List<Map<String, dynamic>>> _sentMessages = {};
+
   static Future<bool> sendElement({
     required String relationCode,
     required String type,
@@ -55,6 +58,14 @@ class ElementService {
     try {
       final response = await ApiClient.post('/element', payload);
       debugPrint('✅ API POST success: ${response.statusCode}');
+      // Stocker le message envoyé localement pour l'historique
+      _sentMessages[relationCode] ??= [];
+      _sentMessages[relationCode]!.add({
+        'type': type,
+        'value': value,
+        'from': 'me',
+        'isSent': true,
+      });
       return true;
     } catch (e) {
       debugPrint('❌ API POST failed: $e');
@@ -83,7 +94,9 @@ class ElementService {
         return [];
       }
 
-      if (data == null || data.isEmpty) return [];
+      if (data == null || data.isEmpty) {
+        return List<Map<String, dynamic>>.from(_sentMessages[myRelationCode] ?? []);
+      }
 
       final myPrivateKey = await keyStore.readPrivateKeyPem(myRelationCode);
 
@@ -116,15 +129,20 @@ class ElementService {
         }
 
         return {
-          'type': e['type'],
+          'type': e['type'] ?? e['key'],
           'value': decrypted,
           'from': e['from'],
           'timestamp': e['timestamp'],
+          'isSent': false,
         };
       }).toList();
+
+      // Fusionner avec les messages envoyés localement
+      final sent = List<Map<String, dynamic>>.from(_sentMessages[myRelationCode] ?? []);
+      return [...received, ...sent];
     } catch (e) {
       debugPrint('Erreur fetch elements: $e');
-      return [];
+      return List<Map<String, dynamic>>.from(_sentMessages[myRelationCode] ?? []);
     }
   }
 }
