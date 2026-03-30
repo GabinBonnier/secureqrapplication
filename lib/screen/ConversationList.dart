@@ -19,11 +19,11 @@ class _ConversationListState extends State<ConversationList> {
     loadConversations();
   }
 
-  // Charger toutes les conversations stockées
+  // Charger toutes les conversations stockées (clé 'conversations')
   Future<void> loadConversations() async {
     final prefs = await SharedPreferences.getInstance();
     setState(() {
-      conversationKeys = prefs.getKeys().toList(); // chaque clé = partnerCode
+      conversationKeys = prefs.getStringList('conversations') ?? [];
     });
   }
 
@@ -53,7 +53,7 @@ class _ConversationListState extends State<ConversationList> {
                 : ListView.builder(
               itemCount: conversationKeys.length,
               itemBuilder: (context, index) {
-                final partnerCode = conversationKeys[index];
+                final conversationId = conversationKeys[index];
                 return GestureDetector(
                   onTap: () {
                     // Ouvre la conversation sélectionnée
@@ -61,7 +61,7 @@ class _ConversationListState extends State<ConversationList> {
                       context,
                       MaterialPageRoute(
                         builder: (_) =>
-                            ConversationScreen(partnerCode: partnerCode),
+                            ConversationScreen(conversationId: conversationId),
                       ),
                     );
                   },
@@ -77,7 +77,7 @@ class _ConversationListState extends State<ConversationList> {
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Text(
-                          partnerCode,
+                          conversationId,
                           style: const TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.w500),

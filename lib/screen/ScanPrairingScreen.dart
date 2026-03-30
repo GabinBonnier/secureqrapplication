@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import '../layout/MainLayout.dart';
 import 'ConversationScreen.dart';
+import '../services/PairingService.dart';
 
 class ScanPairingScreen extends StatefulWidget {
   const ScanPairingScreen({super.key});
@@ -12,7 +13,47 @@ class ScanPairingScreen extends StatefulWidget {
 
 class _ScanPairingScreenState extends State<ScanPairingScreen> {
   String? scannedCode;
-  bool hasNavigated = false; // pour éviter de lancer plusieurs fois la navigation
+  bool hasNavigated = false;
+  bool isLoading = false;
+
+  // complete le pairing via l'API
+  void completePairingAndNavigate(String pairingId) async {
+    setState(() {
+      isLoading = true;
+    });
+
+    try {
+      // on complete le pairing
+      var result = await PairingService.completePairing(pairingId);
+      
+      if (result != null) {
+        print("Pairing complete !");
+        // on navigue vers la conversation (toujours avec le code du QR)
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => ConversationScreen(conversationId: pairingId),
+          ),
+        );
+      } else {
+        // erreur
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Erreur: pairing invalide ou expire")),
+        );
+        hasNavigated = false;
+      }
+    } catch (e) {
+      print("Erreur completion: $e");
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Erreur: $e")),
+      );
+      hasNavigated = false;
+    }
+
+    setState(() {
+      isLoading = false;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -41,7 +82,9 @@ class _ScanPairingScreenState extends State<ScanPairingScreen> {
                     child: SizedBox(
                       width: 280,
                       height: 280,
-                      child: MobileScanner(
+                      child: isLoading 
+                        ? const Center(child: CircularProgressIndicator())
+                        : MobileScanner(
                         onDetect: (BarcodeCapture capture) {
                           final String? code = capture.barcodes.first.rawValue;
 
@@ -49,33 +92,26 @@ class _ScanPairingScreenState extends State<ScanPairingScreen> {
                             scannedCode = code;
                             hasNavigated = true;
 
-                            // Afficher une pop-up pour confirmer la connexion
+                            // popup pour confirmer
                             showDialog(
                               context: context,
                               builder: (context) => AlertDialog(
                                 title: const Text("Invitation reçue"),
                                 content: Text(
-                                    "Voulez-vous démarrer une conversation avec $code ?"),
+                                    "Voulez-vous demarrer une conversation ?"),
                                 actions: [
                                   TextButton(
                                     onPressed: () {
                                       Navigator.of(context).pop();
-                                      hasNavigated = false; // reset si annulation
+                                      hasNavigated = false;
                                     },
                                     child: const Text("Annuler"),
                                   ),
                                   TextButton(
                                     onPressed: () {
                                       Navigator.of(context).pop();
-                                      // Naviguer vers ConversationScreen avec le partnerCode
-                                      Navigator.push(
-                                        context,
-                                        MaterialPageRoute(
-                                          builder: (context) =>
-                                              ConversationScreen(
-                                                  partnerCode: scannedCode!),
-                                        ),
-                                      );
+                                      // on complete le pairing via l'API
+                                      completePairingAndNavigate(scannedCode!);
                                     },
                                     child: const Text("Accepter"),
                                   ),
