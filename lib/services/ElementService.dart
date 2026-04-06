@@ -5,212 +5,147 @@ import 'package:secureqrapplication/crypto/rsa_crypto.dart';
 import 'package:secureqrapplication/crypto/relationship_key_storage.dart';
 
 class ElementService {
-  // Cache local des messages reçus pour l'historique
-  static final Map<String, List<Map<String, dynamic>>> _receivedMessages = {};
-
-  // Cache local des messages envoyés (plaintext) pour l'historique de session
+  // Cache des messages envoyés (plaintext, session uniquement)
   static final Map<String, List<Map<String, dynamic>>> _sentMessages = {};
+
+  // Cache des messages reçus (accumulés, jamais réécrasés)
+  static final Map<String, List<Map<String, dynamic>>> _receivedMessages = {};
 
   static Future<bool> sendElement({
     required String relationCode,
     required String type,
     required String value,
   }) async {
-    debugPrint('=== sendElement START: relationCode=$relationCode, type=$type ===');
+    debugPrint('=== sendElement: relationCode=$relationCode, type=$type ===');
     final keyStore = RelationshipKeyStorage();
 
-    // Retry loop for partner key (max 10s)
+    // Attendre la clé partenaire (max 10s)
     String? partnerKey;
     String? partnerRelCode;
-    int retries = 0;
-    while (retries < 20) {
+    for (int i = 0; i < 20; i++) {
       partnerKey = await keyStore.readPartnerPublicKey(relationCode);
       partnerRelCode = await keyStore.readPartnerRelationCode(relationCode);
-      debugPrint('Key check #$retries: partnerKey=${partnerKey != null}, partnerRelCode=$partnerRelCode');
       if (partnerKey != null) break;
       await Future.delayed(const Duration(milliseconds: 500));
-      retries++;
     }
 
     if (partnerKey == null) {
-      debugPrint('❌ Partner key still missing after 10s retries');
+      debugPrint('❌ Clé partenaire introuvable après 10s');
       return false;
     }
-    debugPrint('✅ Partner key ready (${partnerKey.length} chars)');
 
+    // Chiffrement avec la clé publique du partenaire
     String encrypted;
-    bool isFakeKey = kIsWeb || partnerKey.contains('FAKE-WEB-KEY');
-
-    if (isFakeKey) {
+    if (kIsWeb || partnerKey.contains('FAKE-WEB-KEY')) {
       encrypted = base64Encode(utf8.encode(value));
-      debugPrint('Mode web/fake : message encodé en base64');
     } else {
       encrypted = RsaCrypto.encrypt(value, partnerKey);
-      debugPrint('RSA encryption OK');
     }
 
+    // On envoie sur le relationCode DU PARTENAIRE
+    final targetCode = partnerRelCode ?? relationCode;
+
     final payload = {
-      'relationCode': relationCode,
-      'partnerRelationCode': partnerRelCode ?? '',
+      'relationCode': targetCode,
       'key': type,
       'value': encrypted,
     };
-    debugPrint('API payload: $payload');
 
     try {
       final response = await ApiClient.post('/element', payload);
-      debugPrint('✅ API POST success: ${response.statusCode}');
+      debugPrint('✅ Envoi OK: ${response.statusCode}');
 
-      // CORRECTION : on ajoute un timestamp local pour éviter les collisions de clé de déduplication
+      // Stocker en local pour affichage immédiat côté émetteur
       _sentMessages[relationCode] ??= [];
       _sentMessages[relationCode]!.add({
         'type': type,
-        'value': value,
-        'from': 'me',
+        'value': value, // plaintext pour l'émetteur
         'isSent': true,
-        'timestamp': DateTime.now().toIso8601String(), // ← timestamp local unique
+        'timestamp': DateTime.now().toIso8601String(),
       });
       return true;
     } catch (e) {
-      debugPrint('❌ API POST failed: $e');
+      debugPrint('❌ Envoi échoué: $e');
       return false;
     }
-  }
-
-  /// Fusionne une liste de messages en supprimant les doublons.
-  /// Utilise un index de fallback pour éviter que les messages sans timestamp
-  /// s'écrasent mutuellement.
-  static List<Map<String, dynamic>> _mergeAndSort(
-      List<Map<String, dynamic>> all) {
-    final unique = <String, Map<String, dynamic>>{};
-    int idx = 0;
-    for (final msg in all) {
-      // CORRECTION : si pas de timestamp, on utilise un index unique pour ne pas écraser
-      final ts = msg['timestamp'] ?? 'local_$idx';
-      final key = '${msg['type']}_${msg['value']}_${msg['from']}_$ts';
-      unique[key] = msg;
-      idx++;
-    }
-    final merged = unique.values.toList();
-    merged.sort((a, b) {
-      final ta = a['timestamp'];
-      final tb = b['timestamp'];
-      if (ta == null || tb == null) return 0;
-      return ta.toString().compareTo(tb.toString());
-    });
-    return merged;
   }
 
   static Future<List<Map<String, dynamic>>> fetchElements(
       String myRelationCode) async {
     final keyStore = RelationshipKeyStorage();
-    String? partnerCode;
-
-    List<Map<String, dynamic>> sentMine =
-        List<Map<String, dynamic>>.from(_sentMessages[myRelationCode] ?? []);
-    List<Map<String, dynamic>> sentPartner = <Map<String, dynamic>>[];
-    List<Map<String, dynamic>> receivedMine =
-        List<Map<String, dynamic>>.from(_receivedMessages[myRelationCode] ?? []);
-    List<Map<String, dynamic>> receivedPartner = <Map<String, dynamic>>[];
+    final myPrivateKey = await keyStore.readPrivateKeyPem(myRelationCode);
 
     try {
-      partnerCode = await keyStore.readPartnerRelationCode(myRelationCode);
-      final fetchCode = partnerCode ?? myRelationCode;
-      debugPrint('fetchElements: myCode=$myRelationCode, fetchCode=$fetchCode');
-
-      if (partnerCode != null) {
-        sentPartner = List<Map<String, dynamic>>.from(
-            _sentMessages[partnerCode] ?? []);
-        receivedPartner = List<Map<String, dynamic>>.from(
-            _receivedMessages[partnerCode] ?? []);
-      }
-
-      final response = await ApiClient.get('/element?relationCode=$fetchCode');
+      // On fetch sur MON relationCode : c'est là que l'autre dépose ses messages
+      final response =
+          await ApiClient.get('/element?relationCode=$myRelationCode');
       final decoded = jsonDecode(response.body);
 
-      // Gérer tous les formats possibles de réponse
-      final List? data;
+      List rawData = [];
       if (decoded is List) {
-        data = decoded;
+        rawData = decoded;
       } else if (decoded is Map && decoded['elements'] is List) {
-        data = decoded['elements'];
-      } else {
-        // Réponse invalide → retour sur l'historique local
-        return _mergeAndSort([
-          ...receivedMine,
-          ...receivedPartner,
-          ...sentMine,
-          ...sentPartner,
-        ]);
+        rawData = decoded['elements'];
       }
 
-      if (data == null || data.isEmpty) {
-        return _mergeAndSort([
-          ...receivedMine,
-          ...receivedPartner,
-          ...sentMine,
-          ...sentPartner,
-        ]);
-      }
-
-      final myPrivateKey = await keyStore.readPrivateKeyPem(myRelationCode);
-
-      final received = data.map<Map<String, dynamic>>((e) {
-        String decrypted = '';
-        try {
-          if (myPrivateKey == null) throw Exception('Clé privée manquante');
-
-          if (kIsWeb || myPrivateKey.contains('FAKE-WEB-KEY')) {
-            try {
+      if (rawData.isNotEmpty) {
+        for (final e in rawData) {
+          String decrypted;
+          try {
+            if (myPrivateKey == null ||
+                myPrivateKey.contains('FAKE-WEB-KEY') ||
+                kIsWeb) {
               decrypted = utf8.decode(base64Decode(e['value']));
-            } catch (_) {
-              decrypted = e['value'] ?? '';
-            }
-          } else {
-            try {
+            } else {
               decrypted = RsaCrypto.decrypt(e['value'], myPrivateKey);
-            } catch (_) {
-              try {
-                decrypted = utf8.decode(base64Decode(e['value']));
-              } catch (_) {
-                decrypted = '[Erreur de déchiffrement]';
-              }
             }
+          } catch (_) {
+            decrypted = '[Erreur déchiffrement]';
           }
-        } catch (_) {
-          decrypted = '[Erreur de déchiffrement]';
+
+          final newMsg = {
+            'type': e['type'] ?? e['key'],
+            'value': decrypted,
+            'isSent': false,
+            'timestamp': e['timestamp'] ??
+                DateTime.now().toIso8601String(),
+          };
+
+          // Accumulation : on n'ajoute que si pas déjà dans le cache
+          // (clé de déduplication : type + value déchiffrée + timestamp)
+          _receivedMessages[myRelationCode] ??= [];
+          final dedupKey =
+              '${newMsg['type']}_${newMsg['value']}_${newMsg['timestamp']}';
+          final alreadyExists = _receivedMessages[myRelationCode]!.any((m) =>
+              '${m['type']}_${m['value']}_${m['timestamp']}' == dedupKey);
+
+          if (!alreadyExists) {
+            _receivedMessages[myRelationCode]!.add(newMsg);
+          }
         }
-
-        return {
-          'type': e['type'] ?? e['key'],
-          'value': decrypted,
-          'from': e['from'],
-          'timestamp': e['timestamp'],
-          'isSent': false,
-        };
-      }).toList();
-
-      // Mettre à jour le cache local des messages reçus
-      _receivedMessages[myRelationCode] = received;
-      if (partnerCode != null) {
-        _receivedMessages[partnerCode] = received;
       }
-
-      return _mergeAndSort([
-        ...receivedMine,
-        ...receivedPartner,
-        ...sentMine,
-        ...sentPartner,
-        ...received,
-      ]);
     } catch (e) {
-      debugPrint('Erreur fetch elements: $e');
-      return _mergeAndSort([
-        ...receivedMine,
-        ...receivedPartner,
-        ...sentMine,
-        ...sentPartner,
-      ]);
+      debugPrint('Erreur fetch: $e');
     }
+
+    final all = <Map<String, dynamic>>[
+    ...(_sentMessages[myRelationCode] ?? []),
+    ...(_receivedMessages[myRelationCode] ?? []),
+    ];
+    
+    all.sort((a, b) {
+    final ta = a['timestamp']?.toString() ?? '';
+    final tb = b['timestamp']?.toString() ?? '';
+    return ta.compareTo(tb);
+    });
+    return all;
+
+    all.sort((a, b) {
+      final ta = a['timestamp']?.toString() ?? '';
+      final tb = b['timestamp']?.toString() ?? '';
+      return ta.compareTo(tb);
+    });
+
+    return all;
   }
 }
